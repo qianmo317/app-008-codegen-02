@@ -88,6 +88,7 @@ onMounted(load);
         <button class="btn" @click="router.push(`/task/${task.id}/scan`)">扫码查箱</button>
         <button class="btn" @click="router.push(`/task/${task.id}/check`)">卸货核对</button>
         <button class="btn" @click="router.push(`/task/${task.id}/labels`)">标签打印</button>
+        <button class="btn" @click="router.push(`/task/${task.id}/advances`)">垫付报销</button>
       </div>
 
       <div class="card">

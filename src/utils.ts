@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import type { MoveTask, BoxStatus } from './types';
+import type { MoveTask, BoxStatus, Advance } from './types';
 
 export function uid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -124,4 +124,82 @@ export function roomProgress(task: MoveTask, room: string): { total: number; unp
     unpacked: boxes.filter((b) => b.status === 'unpacked').length,
     damaged: boxes.filter((b) => b.status === 'damaged').length,
   };
+}
+
+export const DEFAULT_ADVANCE_DUE_DAYS = 7;
+
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+export function formatMoney(n: number): string {
+  return `¥${round2(n).toFixed(2)}`;
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+export function toDateTimeLocalValue(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+
+export function isAdvanceOverdue(a: Advance, dueDays: number, now = Date.now()): boolean {
+  return !a.reimbursementId && now - a.paidAt > dueDays * DAY_MS;
+}
+
+// 已超出的天数（仅对逾期记录有意义）
+export function overdueDays(a: Advance, dueDays: number, now = Date.now()): number {
+  return Math.floor((now - a.paidAt) / DAY_MS) - dueDays;
+}
+
+export function advanceSummary(advances: Advance[], dueDays: number) {
+  const pending = advances.filter((a) => !a.reimbursementId);
+  const overdue = pending.filter((a) => isAdvanceOverdue(a, dueDays));
+  const sum = (list: Advance[]) => round2(list.reduce((s, a) => s + a.amount, 0));
+  return {
+    total: sum(advances),
+    pendingAmount: sum(pending),
+    pendingCount: pending.length,
+    reimbursedAmount: sum(advances.filter((a) => a.reimbursementId)),
+    overdueCount: overdue.length,
+    overdueAmount: sum(overdue),
+  };
+}
+
+export type PayerRecon = {
+  payer: string;
+  count: number; // 垫付笔数
+  total: number; // 垫付合计
+  receiptCount: number; // 有票据（凭证照片）的笔数
+  missingReceiptCount: number; // 缺票据的笔数
+  pendingAmount: number; // 待报销金额
+  reimbursedAmount: number; // 已报销金额
+};
+
+// 按垫付人对账：每人垫的钱加起来，应与他手上留的票据数对得上
+export function reconcileByPayer(advances: Advance[]): PayerRecon[] {
+  const map = new Map<string, PayerRecon>();
+  for (const a of advances) {
+    let r = map.get(a.payer);
+    if (!r) {
+      r = { payer: a.payer, count: 0, total: 0, receiptCount: 0, missingReceiptCount: 0, pendingAmount: 0, reimbursedAmount: 0 };
+      map.set(a.payer, r);
+    }
+    r.count += 1;
+    r.total = round2(r.total + a.amount);
+    if (a.photo) r.receiptCount += 1;
+    else r.missingReceiptCount += 1;
+    if (a.reimbursementId) r.reimbursedAmount = round2(r.reimbursedAmount + a.amount);
+    else r.pendingAmount = round2(r.pendingAmount + a.amount);
+  }
+  return [...map.values()].sort((a, b) => b.total - a.total);
 }
