@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getTask } from '../db';
-import { estimateVehicle, roomProgress, statusColor, statusLabel } from '../utils';
+import { estimateVehicle, roomProgress, statusColor, statusLabel, formatMoney, isOverdue } from '../utils';
 import type { MoveTask } from '../types';
 
 const route = useRoute();
@@ -28,6 +28,16 @@ const vehicle = computed(() => {
 const roomStats = computed(() => {
   if (!task.value) return [];
   return task.value.rooms.map((r) => ({ room: r, ...roomProgress(task.value!, r) }));
+});
+
+const money = computed(() => {
+  if (!task.value) return { advance: 0, outstanding: 0, overdueCount: 0 };
+  const pending = task.value.expenses.filter((e) => !e.reimbursementId);
+  return {
+    advance: task.value.expenses.reduce((s, e) => s + e.amount, 0),
+    outstanding: pending.reduce((s, e) => s + e.amount, 0),
+    overdueCount: pending.filter((e) => isOverdue(e.spentAt, task.value!.dueWithinDays)).length,
+  };
 });
 
 async function load() {
@@ -70,6 +80,20 @@ onMounted(load);
         </div>
       </div>
 
+      <div class="card ledger-entry" @click="router.push(`/task/${task.id}/expenses`)">
+        <div>
+          <div style="font-weight:800;font-size:16px;">
+            💰 垫付与报销账
+            <span v-if="money.overdueCount > 0" class="overdue-pill">逾期 {{ money.overdueCount }} 笔</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+            累计垫付 ¥{{ formatMoney(money.advance) }} · 待报销 <b :style="{color: money.outstanding > 0 ? 'var(--danger)' : 'inherit'}">¥{{ formatMoney(money.outstanding) }}</b>
+            · 约定 {{ task.dueWithinDays }} 天内报
+          </div>
+        </div>
+        <span style="font-size:20px;color:var(--text-secondary);">›</span>
+      </div>
+
       <div class="card">
         <div style="font-weight:700;margin-bottom:8px;">拆箱进度</div>
         <div v-for="rs in roomStats" :key="rs.room" style="margin-bottom:10px;">
@@ -105,3 +129,24 @@ onMounted(load);
     </div>
   </div>
 </template>
+
+<style scoped>
+.ledger-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  border-color: var(--primary);
+}
+.overdue-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  vertical-align: middle;
+}
+</style>

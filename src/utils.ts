@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import type { MoveTask, BoxStatus } from './types';
+import type { MoveTask, BoxStatus, ExpenseCategory } from './types';
 
 export function uid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -7,6 +7,71 @@ export function uid(): string {
 
 export function todayStr(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+// ---------- 垫付账本 ----------
+
+const expenseCategoryMeta: Record<ExpenseCategory, { label: string; icon: string }> = {
+  parking: { label: '停车费', icon: '🅿️' },
+  carry: { label: '楼层搬运费', icon: '🧗' },
+  packing: { label: '打包耗材', icon: '📦' },
+  meal: { label: '餐饮水饮', icon: '🍱' },
+  transport: { label: '打车/过路费', icon: '🚕' },
+  tip: { label: '小费/红包', icon: '🧧' },
+  other: { label: '其他', icon: '📝' },
+};
+
+export const expenseCategoryOptions: { value: ExpenseCategory; label: string; icon: string }[] =
+  (Object.keys(expenseCategoryMeta) as ExpenseCategory[]).map((value) => ({
+    value,
+    ...expenseCategoryMeta[value],
+  }));
+
+export function expenseCategoryLabel(c: ExpenseCategory): string {
+  return expenseCategoryMeta[c].label;
+}
+
+export function expenseCategoryIcon(c: ExpenseCategory): string {
+  return expenseCategoryMeta[c].icon;
+}
+
+export function formatMoney(n: number): string {
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function formatDate(ts: number): string {
+  return formatDateTime(ts).split(' ')[0];
+}
+
+/** <input type="datetime-local"> 的值（本地时区） */
+export function toLocalInput(ts: number): string {
+  const d = new Date(ts);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function fromLocalInput(value: string): number {
+  return new Date(value).getTime();
+}
+
+/** 从垫付时间起已经过的整天数 */
+export function elapsedDays(spentAt: number, now = Date.now()): number {
+  const p = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  return Math.max(0, Math.round((p(now) - p(spentAt)) / 86400000));
+}
+
+export function isOverdue(spentAt: number, dueWithinDays: number, now = Date.now()): boolean {
+  return elapsedDays(spentAt, now) > dueWithinDays;
 }
 
 export function generateBoxCode(task: MoveTask, roomTo: string): string {

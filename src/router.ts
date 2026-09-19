@@ -9,6 +9,10 @@ const routes = [
   { path: '/task/:id/labels', name: 'LabelsPrint', component: () => import('./views/LabelsPrint.vue') },
   { path: '/task/:id/scan', name: 'ScanCheck', component: () => import('./views/ScanCheck.vue') },
   { path: '/task/:id/check', name: 'DeliveryCheck', component: () => import('./views/DeliveryCheck.vue') },
+  { path: '/task/:id/expenses', name: 'ExpenseLedger', component: () => import('./views/ExpenseLedger.vue') },
+  { path: '/task/:id/expenses/new', name: 'ExpenseNew', component: () => import('./views/ExpenseNew.vue') },
+  { path: '/task/:id/expenses/:expenseId/edit', name: 'ExpenseEdit', component: () => import('./views/ExpenseNew.vue') },
+  { path: '/task/:id/expenses/reconcile', name: 'ExpenseReconcile', component: () => import('./views/ExpenseReconcile.vue') },
 ];
 
 export default createRouter({

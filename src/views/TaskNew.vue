@@ -11,10 +11,15 @@ const from = ref('');
 const to = ref('');
 const date = ref(todayStr());
 const roomsText = ref('卧室,客厅,厨房,卫生间');
+const dueWithinDays = ref(5);
 
 async function submit() {
   if (!title.value || !from.value || !to.value) {
     alert('请填写完整信息');
+    return;
+  }
+  if (!Number.isFinite(dueWithinDays.value) || dueWithinDays.value < 0) {
+    alert('约定报销天数需为不小于 0 的数字');
     return;
   }
   const rooms = roomsText.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
@@ -26,6 +31,9 @@ async function submit() {
     date: date.value,
     rooms,
     boxes: [],
+    expenses: [],
+    reimbursements: [],
+    dueWithinDays: dueWithinDays.value,
     createdAt: Date.now(),
   };
   await saveTask(task);
@@ -59,6 +67,10 @@ async function submit() {
       <div class="card">
         <label class="label">房间清单（用逗号分隔）</label>
         <input v-model="roomsText" class="input" />
+      </div>
+      <div class="card">
+        <label class="label">约定报销天数（垫付超过该天数未报销会单独列出）</label>
+        <input v-model.number="dueWithinDays" type="number" min="0" step="1" class="input" />
       </div>
       <button class="btn btn-block" @click="submit">创建任务</button>
     </div>
